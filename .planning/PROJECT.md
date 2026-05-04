@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Healthcare scheduling and exam convocation API with two frontends. Backend exposes REST API for managing appointments (agendamentos) and exam convokes (convocacoes), consumed by Bootstrap and React frontends. PostgreSQL database via Docker.
+Healthcare scheduling and exam convocation API with one frontend. Backend exposes REST API for managing appointments (agendamentos) and exam convokes (convocacoes), consumed by Bootstrap HTML frontend. PostgreSQL database via Docker.
 
 ## Core Value
 
@@ -15,8 +15,7 @@ Healthcare workers can schedule exams and manage convokes efficiently through a 
 - ✓ REST API for agendamentos (scheduling) — existing
 - ✓ REST API for convocacoes (exam convokes) — existing
 - ✓ PostgreSQL database — existing
-- ✓ Bootstrap frontend — existing
-- ✓ React frontend — existing
+- ✓ HTML frontend — existing
 
 ### Active
 
@@ -34,7 +33,7 @@ Healthcare workers can schedule exams and manage convokes efficiently through a 
 
 This is a brownfield project with existing:
 - Express/TypeScript backend with Drizzle ORM
-- Two frontends: Bootstrap and React
+- HTML frontend (Bootstrap-based)
 - PostgreSQL via Docker Compose
 - API key protected endpoints
 - Swagger documentation

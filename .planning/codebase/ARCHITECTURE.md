@@ -5,19 +5,17 @@
 ### Architecture Overview
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   React    │     │ Bootstrap │     │  Backend  │
-│  Frontend  │     │ Frontend  │     │  (Node)   │
-└─────┬──────┘     └─────┬──────┘     └─────┬──────┘
-      │                  │                  │
-      └────────┬────────┘                  │
-               │                           │
-               └───────────┬───────────────┘
-                         ▼
-                  ┌─────────────┐
-                  │ PostgreSQL  │
-                  │  (Docker)  │
-                  └───────────┘
+┌─────────────┐     ┌─────────────┐
+│ frontend-   │     │  Backend  │
+│   html     │     │  (Node)   │
+└─────┬──────┘     └─────┬──────┘
+      │                  │
+      └────────┬────────┘
+               ▼
+        ┌─────────────┐
+        │ PostgreSQL  │
+        │  (Docker)   │
+        └───────────┘
 ```
 
 ### Backend Stack
@@ -51,8 +49,7 @@
 
 | Frontend | Stack | Status |
 |---------|-------|--------|
-| frontend-bootstrap | Bootstrap 5.3, Chart.js, XLSX | Working |
-| frontend-react | React 18.2, Vite, TypeScript | Working |
+| frontend-html | Bootstrap 5.3, Chart.js, XLSX | Working |
 
 ### Technology Notes
 

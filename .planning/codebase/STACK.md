@@ -13,22 +13,13 @@
 | Express Rate Limit | 7.1.x | Rate limiting |
 | CORS | - | Cross-origin |
 
-## Frontend Bootstrap
+## Frontend HTML
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | Bootstrap | 5.3.x | CSS framework |
 | Chart.js | 4.4.x | Charts |
 | XLSX | 0.18.x | Excel export |
-
-## Frontend React
-
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| React | 18.2.x | UI library |
-| Vite | 5.x | Build tool |
-| TypeScript | 5.3.x | Types |
-| React Router | 6.x | Routing |
 
 ## Database
 
