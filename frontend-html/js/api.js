@@ -89,6 +89,16 @@ async function getConvocacaoByMatricula(matricula) {
   return await apiGet(`convocacoes/${matricula}`);
 }
 
+// Buscar convocações agrupadas por pessoa (matrícula + nome)
+async function getConvocacoesAgrupadas(params = {}) {
+  return await apiGet('convocacoes-agrupadas', params);
+}
+
+// Buscar detalhes dos exames de uma pessoa específica (sob demanda)
+async function getConvocacoesAgrupadasExames(matricula) {
+  return await apiGet(`convocacoes-agrupadas/${matricula}/exames`);
+}
+
 // Obter contagem de agendamentos por status (para gráficos)
 async function getAgendamentosStats() {
   try {
@@ -148,6 +158,8 @@ window.API = {
   getAgendamentoById,
   getConvocacoes,
   getConvocacaoByMatricula,
+  getConvocacoesAgrupadas,
+  getConvocacoesAgrupadasExames,
   getAgendamentosStats,
   getConvocacoesStats,
   getAgendamentosStatsNew,

@@ -14,6 +14,13 @@ const state = {
     currentPage: 1,
     filters: { limit: 20, situacao: "Ativo" },
   },
+  agrupadas: {
+    data: [],
+    pagination: {},
+    currentPage: 1,
+    filters: { limit: 20, situacao: "Ativo" },
+    expandedRows: new Set(),
+  },
   charts: { status: null, situacao: null },
   isDarkMode: false,
 };
@@ -49,6 +56,7 @@ async function initApp() {
       loadDashboardStats(),
       loadAgendamentos(),
       loadConvocacoes(),
+      loadAgrupadas(),
     ]);
     populateFilterSelects();
   } catch (error) {
@@ -111,6 +119,26 @@ function initEventListeners() {
     .getElementById("convocacaoSearch")
     .addEventListener("keypress", (e) => {
       if (e.key === "Enter") searchConvocacoes();
+    });
+
+  // Agrupadas
+  document
+    .getElementById("btnSearchAgrupadas")
+    .addEventListener("click", () => searchAgrupadas());
+  document
+    .getElementById("btnClearAgrupadas")
+    .addEventListener("click", () => clearAgrupadasFilters());
+  document
+    .getElementById("btnExportAgrupadas")
+    .addEventListener("click", () => exportAgrupadas());
+  document.getElementById("agrupadasLimit").addEventListener("change", (e) => {
+    state.agrupadas.filters.limit = e.target.value;
+    searchAgrupadas();
+  });
+  document
+    .getElementById("agrupadasSearch")
+    .addEventListener("keypress", (e) => {
+      if (e.key === "Enter") searchAgrupadas();
     });
 
   // Tabs
@@ -525,6 +553,193 @@ function exportConvocacoes() {
 }
 
 // =====================================================
+// AGRUPADAS
+// =====================================================
+async function loadAgrupadas(page = 1) {
+  const overlay = document.getElementById("loadingAgrupadasOverlay");
+  overlay.classList.remove("hidden");
+
+  try {
+    const params = { page, ...state.agrupadas.filters };
+    const result = await API.getConvocacoesAgrupadas(params);
+
+    state.agrupadas.data = result.data;
+    state.agrupadas.pagination = result.pagination;
+    state.agrupadas.currentPage = page;
+    state.agrupadas.expandedRows.clear();
+
+    renderAgrupadasTable();
+    renderPagination("agrupadas", result.pagination);
+  } catch (error) {
+    showToast("Erro ao carregar: " + error.message, "error");
+  } finally {
+    overlay.classList.add("hidden");
+  }
+}
+
+function renderAgrupadasTable() {
+  const tbody = document.getElementById("agrupadasTableBody");
+  if (state.agrupadas.data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500">Nenhum resultado encontrado</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.agrupadas.data
+    .map(
+      (item) => {
+        const isExpanded = state.agrupadas.expandedRows.has(item.matricula);
+        
+        let examsList = "";
+        if (isExpanded) {
+          if (!item.exames || item.exames.length === 0) {
+            examsList = `<tr><td colspan="7" class="text-center py-4 text-gray-500">Carregando...</td></tr>`;
+          } else {
+            examsList = item.exames
+              .map(
+                (exam) => `
+                <tr class="bg-gray-50 dark:bg-gray-700/30">
+                  <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500">${String(exam.exame || "-").toUpperCase()}</td>
+                  <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${formatDate(exam.ultimo_pedido)}</td>
+                  <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${formatDate(exam.data_resultado)}</td>
+                  <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${formatDate(exam.refazer_em)}</td>
+                  <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${String(exam.cidade_unidade || "-").toUpperCase()}</td>
+                  <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${String(exam.estado_unidade || "-").toUpperCase()}</td>
+                  <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClass(exam.situacao)}">${String(exam.situacao || "-").toUpperCase()}</span></td>
+                </tr>
+              `
+              )
+              .join("");
+          }
+        }
+
+        return `
+    <tr>
+      <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${String(item.matricula || "-").toUpperCase()}</td>
+      <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${String(item.nome || "-").toUpperCase()}</td>
+      <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${String(item.cargo || "-").toUpperCase()}</td>
+      <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs text-center"><span class="px-2 py-1 bg-primary/10 text-primary rounded font-bold">${item.qtd_exames}</span></td>
+      <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs">${String(item.cidades || "-").toUpperCase()}</td>
+      <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-xs"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClass(item.situacao)}">${String(item.situacao || "-").toUpperCase()}</span></td>
+      <td class="px-3 py-2 border border-gray-200 dark:border-gray-700 text-center">
+        <button onclick="toggleAgrupadasRow('${item.matricula}')" class="px-3 py-1 text-xs rounded ${isExpanded ? 'bg-gray-200 dark:bg-gray-600' : 'bg-primary text-white'} hover:opacity-80 transition-opacity">
+          <i class="ph ${isExpanded ? 'ph-caret-up' : 'ph-caret-down'}"></i>
+          ${isExpanded ? 'Ocultar' : 'Ver'}
+        </button>
+      </td>
+    </tr>
+    ${isExpanded ? `
+    <tr>
+      <td colspan="7" class="p-0 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div class="p-3">
+          <table class="w-full border-collapse">
+            <thead class="bg-gray-100 dark:bg-gray-700">
+              <tr>
+                <th class="px-3 py-2 text-left text-xs font-bold uppercase border border-gray-200 dark:border-gray-600">Exame</th>
+                <th class="px-3 py-2 text-left text-xs font-bold uppercase border border-gray-200 dark:border-gray-600">Último</th>
+                <th class="px-3 py-2 text-left text-xs font-bold uppercase border border-gray-200 dark:border-gray-600">Resultado</th>
+                <th class="px-3 py-2 text-left text-xs font-bold uppercase border border-gray-200 dark:border-gray-600">Próximo</th>
+                <th class="px-3 py-2 text-left text-xs font-bold uppercase border border-gray-200 dark:border-gray-600">Cidade</th>
+                <th class="px-3 py-2 text-left text-xs font-bold uppercase border border-gray-200 dark:border-gray-600">Estado</th>
+                <th class="px-3 py-2 text-left text-xs font-bold uppercase border border-gray-200 dark:border-gray-600">Situação</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${examsList}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+    ` : ""}
+  `;
+      }
+    )
+    .join("");
+}
+
+async function toggleAgrupadasRow(matricula) {
+  if (state.agrupadas.expandedRows.has(matricula)) {
+    state.agrupadas.expandedRows.delete(matricula);
+  } else {
+    state.agrupadas.expandedRows.add(matricula);
+    
+    // Buscar detalhes dos exames sob demanda se ainda não foram carregados
+    const item = state.agrupadas.data.find(d => d.matricula === matricula);
+    if (item && !item.exames) {
+      try {
+        const result = await API.getConvocacoesAgrupadasExames(matricula);
+        item.exames = result.exames;
+      } catch (error) {
+        showToast("Erro ao carregar detalhes: " + error.message, "error");
+        item.exames = [];
+      }
+    }
+  }
+  renderAgrupadasTable();
+}
+
+function searchAgrupadas() {
+  const search = document.getElementById("agrupadasSearch").value;
+  const situacao = document.getElementById("agrupadasSituacao").value;
+
+  const filters = { limit: document.getElementById("agrupadasLimit").value };
+  if (search) filters.q = search;
+  if (situacao) filters.situacao = situacao;
+
+  state.agrupadas.filters = filters;
+  state.agrupadas.expandedRows.clear();
+  loadAgrupadas(1);
+}
+
+function clearAgrupadasFilters() {
+  document.getElementById("agrupadasSearch").value = "";
+  document.getElementById("agrupadasSituacao").value = "Ativo";
+  state.agrupadas.filters = { limit: 20, situacao: "Ativo" };
+  state.agrupadas.expandedRows.clear();
+  loadAgrupadas(1);
+}
+
+function exportAgrupadas() {
+  const data = state.agrupadas.data.flatMap((item) => {
+    // Se tem exames carregados, exportar cada exame
+    if (item.exames && item.exames.length > 0) {
+      return item.exames.map((exam) => ({
+        Matrícula: item.matricula,
+        Nome: item.nome,
+        Cargo: item.cargo,
+        "Qtd Exames": item.qtd_exames,
+        Cidades: item.cidades,
+        Situação: item.situacao,
+        Exame: exam.exame,
+        "Último Pedido": exam.ultimo_pedido,
+        "Data Resultado": exam.data_resultado,
+        "Próximo": exam.refazer_em,
+        Cidade: exam.cidade_unidade,
+        Estado: exam.estado_unidade,
+        "Situação Exame": exam.situacao,
+      }));
+    }
+    // Se não tem exames carregados, exportar dados agregados
+    return [{
+      Matrícula: item.matricula,
+      Nome: item.nome,
+      Cargo: item.cargo,
+      "Qtd Exames": item.qtd_exames,
+      Cidades: item.cidades,
+      Situação: item.situacao,
+      Exame: "-",
+      "Último Pedido": "-",
+      "Data Resultado": "-",
+      "Próximo": "-",
+      Cidade: "-",
+      Estado: "-",
+      "Situação Exame": "-",
+    }];
+  });
+  exportToExcel(data, "convocacoes_agrupadas");
+  showToast("Exportado com sucesso!", "success");
+}
+
+// =====================================================
 // HELPERS
 // =====================================================
 function populateFilterSelects() {
@@ -557,6 +772,19 @@ function populateFilterSelects() {
     });
 }
 
+function getLoadFunction(type) {
+  switch (type) {
+    case "agendamentos":
+      return "loadAgendamentos";
+    case "convocacoes":
+      return "loadConvocacoes";
+    case "agrupadas":
+      return "loadAgrupadas";
+    default:
+      return "loadAgendamentos";
+  }
+}
+
 function renderPagination(type, pagination) {
   const container = document.getElementById(`${type}Pagination`);
   const { page, totalPages, hasNext, hasPrev } = pagination;
@@ -566,20 +794,22 @@ function renderPagination(type, pagination) {
     return;
   }
 
+  const loadFn = getLoadFunction(type);
+
   let html = "";
   html += `<li class="page-item ${!hasPrev ? "opacity-50 pointer-events-none" : ""}">
-    <button onclick="${type === "agendamentos" ? "loadAgendamentos" : "loadConvocacoes"}(${page - 1})" class="px-3 py-1 rounded border hover:bg-gray-100 dark:hover:bg-gray-700 ${page === 1 ? "bg-primary text-white" : ""}">←</button></li>`;
+    <button onclick="${loadFn}(${page - 1})" class="px-3 py-1 rounded border hover:bg-gray-100 dark:hover:bg-gray-700 ${page === 1 ? "bg-primary text-white" : ""}">←</button></li>`;
 
   for (
     let i = Math.max(1, page - 2);
     i <= Math.min(totalPages, page + 2);
     i++
   ) {
-    html += `<li><button onclick="${type === "agendamentos" ? "loadAgendamentos" : "loadConvocacoes"}(${i})" class="px-3 py-1 rounded border ${i === page ? "bg-primary text-white" : "hover:bg-gray-100 dark:hover:bg-gray-700"}">${i}</button></li>`;
+    html += `<li><button onclick="${loadFn}(${i})" class="px-3 py-1 rounded border ${i === page ? "bg-primary text-white" : "hover:bg-gray-100 dark:hover:bg-gray-700"}">${i}</button></li>`;
   }
 
   html += `<li class="page-item ${!hasNext ? "opacity-50 pointer-events-none" : ""}">
-    <button onclick="${type === "agendamentos" ? "loadAgendamentos" : "loadConvocacoes"}(${page + 1})" class="px-3 py-1 rounded border hover:bg-gray-100 dark:hover:bg-gray-700 ${page === totalPages ? "bg-primary text-white" : ""}">→</button></li>`;
+    <button onclick="${loadFn}(${page + 1})" class="px-3 py-1 rounded border hover:bg-gray-100 dark:hover:bg-gray-700 ${page === totalPages ? "bg-primary text-white" : ""}">→</button></li>`;
 
   container.innerHTML = html;
 }
@@ -702,5 +932,7 @@ function setupConfigModal() {
 // Expose functions to global
 window.loadAgendamentos = loadAgendamentos;
 window.loadConvocacoes = loadConvocacoes;
+window.loadAgrupadas = loadAgrupadas;
 window.showAgendamentoDetail = showAgendamentoDetail;
 window.showConvocacaoDetail = showConvocacaoDetail;
+window.toggleAgrupadasRow = toggleAgrupadasRow;
