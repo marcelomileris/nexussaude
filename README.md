@@ -4,14 +4,15 @@ Este projeto foi desenvolvido para o desafio da NexusSaude, consistindo em uma A
 
 ## 📋 Índice
 
-- [Stack de Tecnologias](#stack-de-tecnologias)
-- [Pré-requisitos](#pré-requisitos)
-- [Instalação e Execução Local](#instalação-e-execução-local)
-- [Docker Compose](#docker-compose)
-- [Descrição dos Endpoints](#descrição-dos-endpoints)
-- [Autenticação](#autenticação)
-- [Estrutura do Projeto](#estrutura-do-projeto)
-- [Variáveis de Ambiente](#variáveis-de-ambiente)
+- [Stack de Tecnologias](#-stack-de-tecnologias)
+- [Pré-requisitos](#-pré-requisitos)
+- [Instalação e Execução Local](#-instalação-e-execução-local)
+- [Docker Compose](#-docker-compose)
+- [Descrição dos Endpoints](#-descrição-dos-endpoints)
+- [Autenticação](#-autenticação)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Variáveis de Ambiente](#-variáveis-de-ambiente)
+- [Telas do Frontend](#-telas-do-frontend)
 
 ---
 
