@@ -203,6 +203,15 @@ async function getConvocacoesStatsNew() {
   return await apiGetWithRetry('stats/convocacoes', {}, LONG_TIMEOUT);
 }
 
+// Funções de filtros
+async function getConvocacoesSituacoes() {
+  return await apiGet('convocacoes/situacoes');
+}
+
+async function getAgendamentosStatus() {
+  return await apiGet('agendamentos/status');
+}
+
 // API exports
 window.API = {
   getAgendamentos,
@@ -215,5 +224,8 @@ window.API = {
   getConvocacoesStats,
   getAgendamentosStatsNew,
   getConvocacoesStatsNew,
-  getApiKey
+  getConvocacoesSituacoes,
+  getAgendamentosStatus,
+  getApiKey,
+  apiGet
 };

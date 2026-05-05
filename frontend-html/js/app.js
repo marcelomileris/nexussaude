@@ -223,47 +223,50 @@ async function loadDashboardStats() {
     const agendamentosStats = await API.getAgendamentosStatsNew();
     console.log("Agendamentos Stats received:", agendamentosStats);
 
-    document.getElementById("totalAgendamentos").textContent = formatNumber(
-      agendamentosStats?.total || 0,
-    );
-    document.getElementById("agendamentosPendentes").textContent = formatNumber(
-      agendamentosStats?.naoCompareceu || 0,
-    );
-    document.getElementById("kpiInside").textContent = formatNumber(
-      agendamentosStats?.dentroPrazo || 0,
-    );
-    document.getElementById("kpiOutside").textContent = formatNumber(
-      agendamentosStats?.foraPrazo || 0,
-    );
-    document.getElementById("kpiPercentualNaoCompareceu").textContent =
-      `${agendamentosStats?.percentual?.naoCompareceu || 0}%`;
-    document.getElementById("kpiConcluidos").textContent = formatNumber(
-      agendamentosStats?.concluidos || 0,
-    );
+    const el1 = document.getElementById("totalAgendamentos");
+    if (el1) el1.textContent = formatNumber(agendamentosStats?.total || 0);
+
+    const el2 = document.getElementById("agendamentosPendentes");
+    if (el2) el2.textContent = formatNumber(agendamentosStats?.naoCompareceu || 0);
+
+    const el3 = document.getElementById("kpiInside");
+    if (el3) el3.textContent = formatNumber(agendamentosStats?.dentroPrazo || 0);
+
+    const el4 = document.getElementById("kpiOutside");
+    if (el4) el4.textContent = formatNumber(agendamentosStats?.foraPrazo || 0);
+
+    const el5 = document.getElementById("kpiPercentualNaoCompareceu");
+    if (el5) el5.textContent = `${agendamentosStats?.percentual?.naoCompareceu || 0}%`;
+
+    const el6 = document.getElementById("kpiConcluidos");
+    if (el6) el6.textContent = formatNumber(agendamentosStats?.concluidos || 0);
 
     (agendamentosStats.topSolicitantes || []).forEach((item, i) => {
       if (i < 5) {
-        document.getElementById(`solicitante${i + 1}Label`).textContent = item.label;
-        document.getElementById(`solicitante${i + 1}Total`).textContent = formatNumber(item.total);
+        const labelEl = document.getElementById(`solicitante${i + 1}Label`);
+        const totalEl = document.getElementById(`solicitante${i + 1}Total`);
+        if (labelEl) labelEl.textContent = item.label;
+        if (totalEl) totalEl.textContent = formatNumber(item.total);
       }
     });
 
     (agendamentosStats.topCidades || []).forEach((item, i) => {
       if (i < 5) {
-        document.getElementById(`cidade${i + 1}Label`).textContent = item.label;
-        document.getElementById(`cidade${i + 1}Total`).textContent = formatNumber(item.total);
+        const labelEl = document.getElementById(`cidade${i + 1}Label`);
+        const totalEl = document.getElementById(`cidade${i + 1}Total`);
+        if (labelEl) labelEl.textContent = item.label;
+        if (totalEl) totalEl.textContent = formatNumber(item.total);
       }
     });
 
     const convocacoesStats = await API.getConvocacoesStatsNew();
     console.log("Convocacoes Stats received:", convocacoesStats);
 
-    document.getElementById("totalConvocacoes").textContent = formatNumber(
-      convocacoesStats?.total || 0,
-    );
-    document.getElementById("convocacoesAtivas").textContent = formatNumber(
-      convocacoesStats?.ativos || 0,
-    );
+    const el7 = document.getElementById("totalConvocacoes");
+    if (el7) el7.textContent = formatNumber(convocacoesStats?.total || 0);
+
+    const el8 = document.getElementById("convocacoesAtivas");
+    if (el8) el8.textContent = formatNumber(convocacoesStats?.ativos || 0);
 
     try {
       console.log("Creating charts...");
@@ -482,11 +485,16 @@ async function loadConvocacoes(page = 1) {
 
   try {
     const params = { page, ...state.convocacoes.filters };
+    console.log("loadConvocacoes params:", params);
     const result = await API.getConvocacoes(params);
+    console.log("loadConvocacoes result:", result);
 
     state.convocacoes.data = result.data;
     state.convocacoes.pagination = result.pagination;
     state.convocacoes.currentPage = page;
+
+    console.log("Convocacoes data after load:", state.convocacoes.data);
+    console.log("Convocacoes pagination:", state.convocacoes.pagination);
 
     renderConvocacoesTable();
     renderPagination("convocacoes", result.pagination);
@@ -532,6 +540,7 @@ function searchConvocacoes() {
   if (search) filters.q = search;
   if (situacao) filters.situacao = situacao;
 
+  console.log("Convocacoes search filters:", filters);
   state.convocacoes.filters = filters;
   loadConvocacoes(1);
 }
@@ -754,34 +763,29 @@ function exportAgrupadas() {
 // =====================================================
 // HELPERS
 // =====================================================
-function populateFilterSelects() {
-  const statusSet = new Set();
-  const situacaoSet = new Set();
+async function populateFilterSelects() {
+  try {
+    const [statusRes, situacaoRes] = await Promise.all([
+      API.apiGet('agendamentos/status'),
+      API.apiGet('convocacoes/situacoes')
+    ]);
 
-  state.agendamentos.data.forEach((item) => {
-    if (item.status) statusSet.add(item.status);
-  });
-  state.convocacoes.data.forEach((item) => {
-    if (item.situacao) situacaoSet.add(item.situacao);
-  });
-
-  const statusSelect = document.getElementById("agendamentoStatus");
-  const currentStatus = statusSelect.value;
-  statusSelect.innerHTML = '<option value="">Todos</option>';
-  Array.from(statusSet)
-    .sort()
-    .forEach((s) => {
+    const statusSelect = document.getElementById("agendamentoStatus");
+    const currentStatus = statusSelect.value;
+    statusSelect.innerHTML = '<option value="">Todos</option>';
+    (statusRes || []).forEach((s) => {
       statusSelect.innerHTML += `<option value="${s}" ${s === currentStatus ? "selected" : ""}>${s}</option>`;
     });
 
-  const situacaoSelect = document.getElementById("convocacaoSituacao");
-  const currentSituacao = situacaoSelect.value;
-  situacaoSelect.innerHTML = '<option value="">Todas</option>';
-  Array.from(situacaoSet)
-    .sort()
-    .forEach((s) => {
+    const situacaoSelect = document.getElementById("convocacaoSituacao");
+    const currentSituacao = situacaoSelect.value;
+    situacaoSelect.innerHTML = '<option value="">Todas</option>';
+    (situacaoRes || []).forEach((s) => {
       situacaoSelect.innerHTML += `<option value="${s}" ${s === currentSituacao ? "selected" : ""}>${s}</option>`;
     });
+  } catch (error) {
+    console.error("Erro ao carregar filtros:", error);
+  }
 }
 
 function getLoadFunction(type) {

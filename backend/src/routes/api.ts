@@ -23,6 +23,7 @@ interface ListOptions {
   searchable?: string[];
   filters?: Record<string, string>;
   columns: string;
+  baseCondition?: string;
 }
 
 // =====================================================
@@ -40,7 +41,7 @@ function buildPagination(page: number, limit: number, total: number) {
 }
 
 function buildListQuery(options: ListOptions, params: ListParams) {
-  const { table, schema, allowedSorts, defaultSort, searchable, filters, columns } = options;
+  const { table, schema, allowedSorts, defaultSort, searchable, filters, columns, baseCondition } = options;
   const { page, limit, sort, order, ...queryParams } = params;
 
   const pageNum = Math.max(1, parseIntSafe(page, 1));
@@ -49,6 +50,9 @@ function buildListQuery(options: ListOptions, params: ListParams) {
 
   // Condições base + filtros dinâmicos
   const conditions: string[] = [];
+  if (baseCondition) {
+    conditions.push(`(${baseCondition})`);
+  }
   const paramValues: (string | number)[] = [];
   let paramIndex = 1;
 
@@ -97,9 +101,14 @@ async function listRoute(
   const { table, schema, columns } = options;
   const params = req.query as unknown as ListParams;
 
+  console.log("listRoute params:", params);
+
   try {
     const { whereClause, paramValues, sortField, orderDir, limitNum, offset, pageNum } =
       buildListQuery(options, params);
+
+    console.log("Query:", `SELECT COUNT(*) as total FROM ${schema}.${table} ${whereClause}`);
+    console.log("Params:", paramValues);
 
     // Query total
     const countResult = await pool.query(
@@ -109,10 +118,14 @@ async function listRoute(
     const total = parseIntSafe(countResult.rows[0].total);
 
     // Query dados
+    const dataQuery = `SELECT ${columns} FROM ${schema}.${table} ${whereClause} ORDER BY ${sortField} ${orderDir} LIMIT $${paramValues.length + 1} OFFSET $${paramValues.length + 2}`;
+    console.log("Data Query:", dataQuery);
     const dataResult = await pool.query(
-      `SELECT ${columns} FROM ${schema}.${table} ${whereClause} ORDER BY ${sortField} ${orderDir} LIMIT $${paramValues.length + 1} OFFSET $${paramValues.length + 2}`,
+      dataQuery,
       [...paramValues, limitNum, offset]
     );
+
+    console.log("Data returned:", dataResult.rows.length);
 
     res.json({
       data: dataResult.rows,
@@ -156,6 +169,21 @@ router.get("/agendamentos", async (req: Request, res: Response) => {
   await listRoute(req, res, AGENDAMENTOS_OPTIONS);
 });
 
+router.get("/agendamentos/status", async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT status
+      FROM central_teste.base_geral
+      WHERE status IS NOT NULL AND TRIM(status) != ''
+      ORDER BY status
+    `);
+    res.json(result.rows.map(r => r.status));
+  } catch (error) {
+    console.error("Erro ao buscar status:", error);
+    res.status(500).json({ error: "Erro interno do servidor" });
+  }
+});
+
 router.get("/agendamentos/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
@@ -196,6 +224,7 @@ const CONVOCACOES_OPTIONS: ListOptions = {
     estado: "estado_unidade",
     q: "q",
   },
+  baseCondition: "(nome IS NOT NULL AND TRIM(nome) != '') OR (matricula IS NOT NULL AND TRIM(matricula) != '') OR (cargo IS NOT NULL AND TRIM(cargo) != '') OR (exame IS NOT NULL AND TRIM(exame) != '')",
   columns: `
     cargo, nome, matricula, exame, ultimo_pedido, data_resultado,
     periodicidade, refazer_em, dt_admissao, situacao, cidade_unidade,
@@ -205,6 +234,22 @@ const CONVOCACOES_OPTIONS: ListOptions = {
 
 router.get("/convocacoes", async (req: Request, res: Response) => {
   await listRoute(req, res, CONVOCACOES_OPTIONS);
+});
+
+router.get("/convocacoes/situacoes", async (req: Request, res: Response) => {
+  try {
+    const baseFilter = `(nome IS NOT NULL AND TRIM(nome) != '') OR (matricula IS NOT NULL AND TRIM(matricula) != '') OR (cargo IS NOT NULL AND TRIM(cargo) != '') OR (exame IS NOT NULL AND TRIM(exame) != '')`;
+    const result = await pool.query(`
+      SELECT DISTINCT situacao
+      FROM relacionamento_teste.convocacao_de_exames_geral
+      WHERE situacao IS NOT NULL AND TRIM(situacao) != '' AND (${baseFilter})
+      ORDER BY situacao
+    `);
+    res.json(result.rows.map(r => r.situacao));
+  } catch (error) {
+    console.error("Erro ao buscar situações:", error);
+    res.status(500).json({ error: "Erro interno do servidor" });
+  }
 });
 
 router.get("/convocacoes/:matricula", async (req: Request, res: Response) => {
@@ -234,13 +279,15 @@ router.get("/convocacoes/:matricula", async (req: Request, res: Response) => {
 router.get("/convocacoes-agrupadas", async (req: Request, res: Response) => {
   const params = req.query as unknown as ListParams;
 
+  const baseFilter = `(nome IS NOT NULL AND TRIM(nome) != '') OR (matricula IS NOT NULL AND TRIM(matricula) != '') OR (cargo IS NOT NULL AND TRIM(cargo) != '') OR (exame IS NOT NULL AND TRIM(exame) != '')`;
+
   try {
     const pageNum = Math.max(1, parseIntSafe(params.page, 1));
     const limitNum = Math.min(100, Math.max(1, parseIntSafe(params.limit, 20)));
     const offset = (pageNum - 1) * limitNum;
 
     // Condições base + filtros dinâmicos
-    const conditions: string[] = [];
+    const conditions: string[] = [`(${baseFilter})`];
     const paramValues: (string | number)[] = [];
     let paramIndex = 1;
 
@@ -259,7 +306,7 @@ router.get("/convocacoes-agrupadas", async (req: Request, res: Response) => {
       paramValues.push(situacao.trim());
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const whereClause = `WHERE ${conditions.join(" AND ")}`;
 
     // Query para contar total de pessoas únicas (agrupadas por matricula)
     const countResult = await pool.query(

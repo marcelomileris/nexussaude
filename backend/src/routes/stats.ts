@@ -189,34 +189,39 @@ router.get("/convocacoes", async (req: Request, res: Response) => {
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
 
+  const baseFilter = `(nome IS NOT NULL AND TRIM(nome) != '') OR (matricula IS NOT NULL AND TRIM(matricula) != '') OR (cargo IS NOT NULL AND TRIM(cargo) != '') OR (exame IS NOT NULL AND TRIM(exame) != '')`;
+
   try {
     const results = await Promise.all([
-      pool.query("SELECT COUNT(*) as total FROM relacionamento_teste.convocacao_de_exames_geral"),
+      pool.query(`SELECT COUNT(*) as total FROM relacionamento_teste.convocacao_de_exames_geral WHERE ${baseFilter}`),
       pool.query(`
         SELECT situacao, COUNT(*) as total
         FROM relacionamento_teste.convocacao_de_exames_geral
+        WHERE ${baseFilter}
         GROUP BY situacao ORDER BY total DESC
       `),
       pool.query(`
         SELECT cargo, COUNT(*) as total
         FROM relacionamento_teste.convocacao_de_exames_geral
-        WHERE cargo IS NOT NULL AND TRIM(cargo) != ''
+        WHERE ${baseFilter}
         GROUP BY cargo ORDER BY total DESC LIMIT 10
       `),
       pool.query(`
         SELECT exame, COUNT(*) as total
         FROM relacionamento_teste.convocacao_de_exames_geral
+        WHERE ${baseFilter}
         GROUP BY exame ORDER BY total DESC
       `),
       pool.query(`
         SELECT estado_unidade, COUNT(*) as total
         FROM relacionamento_teste.convocacao_de_exames_geral
+        WHERE ${baseFilter}
         GROUP BY estado_unidade ORDER BY total DESC
       `),
       pool.query(`
         SELECT cidade_unidade, COUNT(*) as total
         FROM relacionamento_teste.convocacao_de_exames_geral
-        WHERE cidade_unidade IS NOT NULL AND TRIM(cidade_unidade) != ''
+        WHERE ${baseFilter} AND cidade_unidade IS NOT NULL AND TRIM(cidade_unidade) != ''
         GROUP BY cidade_unidade ORDER BY total DESC LIMIT 10
       `),
     ]);
