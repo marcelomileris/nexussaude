@@ -41,28 +41,69 @@ async function initApp() {
   }
 
   // API Key
-  let apiKey = localStorage.getItem("desafio_api_key");
-  if (!apiKey) {
-    apiKey = "desafio2025_nexus_key";
-    localStorage.setItem("desafio_api_key", apiKey);
-  }
+  const apiKey = localStorage.getItem("desafio_api_key");
 
   initEventListeners();
   setupConfigModal();
 
-  // Carregar dados
+  // Verificar se API Key está configurada
+  if (!apiKey) {
+    showApiKeyRequiredMessage();
+    return;
+  }
+
+  // Carregar dados sequencialmente para evitar race conditions
   try {
-    await Promise.all([
-      loadDashboardStats(),
-      loadAgendamentos(),
-      loadConvocacoes(),
-      loadAgrupadas(),
-    ]);
+    console.log("Loading dashboard stats...");
+    await loadDashboardStats();
+    console.log("Dashboard stats loaded, loading agendamentos...");
+    await loadAgendamentos();
+    console.log("Agendamentos loaded, loading convocacoes...");
+    await loadConvocacoes();
+    console.log("Convocacoes loaded, loading agrupadas...");
+    await loadAgrupadas();
+    console.log("All data loaded, populating filters...");
     populateFilterSelects();
+    console.log("Done!");
   } catch (error) {
+    console.error("Error loading data:", error);
     showToast("Erro ao carregar dados: " + error.message, "error");
   }
 }
+
+// =====================================================
+// API KEY MENSAGEM
+// =====================================================
+function showApiKeyRequiredMessage() {
+  const dashboard = document.getElementById('dashboard');
+  if (!dashboard) return;
+
+  dashboard.innerHTML = `
+    <div class="flex items-center justify-center min-h-[60vh]">
+      <div class="text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg max-w-md">
+        <i class="ph ph-key text-5xl text-yellow-600 dark:text-yellow-400 mb-4"></i>
+        <h2 class="text-xl font-bold text-yellow-800 dark:text-yellow-200 mb-2">API Key Não Configurada</h2>
+        <p class="text-yellow-700 dark:text-yellow-300 mb-4">
+          Por favor, configure a API Key para acessar os dados do sistema.
+        </p>
+        <button onclick="openConfigModal()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors">
+          <i class="ph ph-gear mr-2"></i>Configurar API Key
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Listener para evento de API Key necessária
+window.addEventListener('apiKeyRequired', () => {
+  showApiKeyRequiredMessage();
+});
+
+// Função global para abrir modal de configuração
+window.openConfigModal = function() {
+  document.getElementById("configModal").classList.remove("hidden");
+  document.getElementById("configModal").classList.add("flex");
+};
 
 // =====================================================
 // EVENT LISTENERS
@@ -163,50 +204,43 @@ function initEventListeners() {
 // DASHBOARD STATS & CHARTS
 // =====================================================
 async function loadDashboardStats() {
-  const showLoader = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove("hidden");
+  const hideAllLoaders = () => {
+    const loaderIds = [
+      "kpi1Loading", "kpi2Loading", "kpi3Loading", "kpi4Loading",
+      "kpi5Loading", "kpi6Loading", "kpi7Loading", "kpi8Loading",
+      "chart1Loading", "chart2Loading"
+    ];
+    loaderIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add("hidden");
+    });
   };
 
-  const hideLoader = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.classList.add("hidden");
-  };
+  // Hide all loaders initially
+  hideAllLoaders();
 
   try {
-    // Show loaders after a small delay (cards already visible with "-")
-    setTimeout(() => {
-      showLoader("kpi1Loading");
-      showLoader("kpi3Loading");
-      showLoader("kpi5Loading");
-      showLoader("kpi6Loading");
-      showLoader("kpi7Loading");
-      showLoader("kpi8Loading");
-      showLoader("chart1Loading");
-    }, 100);
-
     const agendamentosStats = await API.getAgendamentosStatsNew();
-    console.log("Agendamentos Stats:", agendamentosStats);
+    console.log("Agendamentos Stats received:", agendamentosStats);
 
     document.getElementById("totalAgendamentos").textContent = formatNumber(
-      agendamentosStats.total,
+      agendamentosStats?.total || 0,
     );
     document.getElementById("agendamentosPendentes").textContent = formatNumber(
-      agendamentosStats.naoCompareceu,
+      agendamentosStats?.naoCompareceu || 0,
     );
     document.getElementById("kpiInside").textContent = formatNumber(
-      agendamentosStats.dentroPrazo,
+      agendamentosStats?.dentroPrazo || 0,
     );
     document.getElementById("kpiOutside").textContent = formatNumber(
-      agendamentosStats.foraPrazo,
+      agendamentosStats?.foraPrazo || 0,
     );
     document.getElementById("kpiPercentualNaoCompareceu").textContent =
-      `${agendamentosStats.percentual.naoCompareceu}%`;
+      `${agendamentosStats?.percentual?.naoCompareceu || 0}%`;
     document.getElementById("kpiConcluidos").textContent = formatNumber(
-      agendamentosStats.concluidos,
+      agendamentosStats?.concluidos || 0,
     );
 
-    // Top 5 Solicitantes
     (agendamentosStats.topSolicitantes || []).forEach((item, i) => {
       if (i < 5) {
         document.getElementById(`solicitante${i + 1}Label`).textContent = item.label;
@@ -214,7 +248,6 @@ async function loadDashboardStats() {
       }
     });
 
-    // Top 5 Cidades
     (agendamentosStats.topCidades || []).forEach((item, i) => {
       if (i < 5) {
         document.getElementById(`cidade${i + 1}Label`).textContent = item.label;
@@ -222,48 +255,27 @@ async function loadDashboardStats() {
       }
     });
 
-    hideLoader("kpi1Loading");
-    hideLoader("kpi3Loading");
-    hideLoader("kpi5Loading");
-    hideLoader("kpi6Loading");
-    hideLoader("kpi7Loading");
-    hideLoader("kpi8Loading");
-    hideLoader("chart1Loading");
-
-    setTimeout(() => {
-      showLoader("kpi2Loading");
-      showLoader("kpi4Loading");
-      showLoader("chart2Loading");
-    }, 100);
-
     const convocacoesStats = await API.getConvocacoesStatsNew();
+    console.log("Convocacoes Stats received:", convocacoesStats);
 
     document.getElementById("totalConvocacoes").textContent = formatNumber(
-      convocacoesStats.total,
+      convocacoesStats?.total || 0,
     );
     document.getElementById("convocacoesAtivas").textContent = formatNumber(
-      convocacoesStats.ativos,
+      convocacoesStats?.ativos || 0,
     );
 
-    hideLoader("kpi2Loading");
-    hideLoader("kpi4Loading");
-    hideLoader("chart2Loading");
-
-    createCharts(agendamentosStats, convocacoesStats);
+    try {
+      console.log("Creating charts...");
+      createCharts(agendamentosStats, convocacoesStats);
+      console.log("Charts created successfully");
+    } catch (chartError) {
+      console.error("Erro ao criar gráficos:", chartError);
+    }
   } catch (error) {
     console.error("Erro ao carregar stats:", error);
-    [
-      "kpi1Loading",
-      "kpi2Loading",
-      "kpi3Loading",
-      "kpi4Loading",
-      "kpi5Loading",
-      "kpi6Loading",
-      "kpi7Loading",
-      "kpi8Loading",
-      "chart1Loading",
-      "chart2Loading",
-    ].forEach(hideLoader);
+    hideAllLoaders();
+    showToast("Erro ao carregar dados do dashboard: " + error.message, "error");
   }
 }
 
@@ -926,7 +938,7 @@ function setupConfigModal() {
 
   // Load current API key
   document.getElementById("currentApiKey").value =
-    localStorage.getItem("desafio_api_key") || "desafio2025_nexus_key";
+    localStorage.getItem("desafio_api_key") || "";
 }
 
 // Expose functions to global
